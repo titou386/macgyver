@@ -2,11 +2,11 @@
 
 MAP_FILE = "MAP"
 MAP_SIZE = 15
-ITEMS_LIST = ["Needle", "Ether", "Syringe", "Tube", "Guardian"]
+ITEMS_LIST = ["Needle", "Ether", "Syringe", "Tube"]
 
 # Shortcuts
 
-UP = 'u'
-DOWN = 'd'
-RIGHT = 'r'
-LEFT = 'l'
+UP = 'e'
+DOWN = 'x'
+RIGHT = 'd'
+LEFT = 's'

@@ -1,164 +1,267 @@
 import random
 import os
-from constant import *
+
+from constant import MAP_FILE
+from constant import MAP_SIZE
+from constant import ITEMS_LIST
+
+from constant import UP
+from constant import DOWN
+from constant import RIGHT
+from constant import LEFT
+
 
 class Position:
-	def __init__(self, x, y, name):
-		self.x = x
-		self.y = y
-		self.name = name
-	
-	def move_up(self):
-		if self.y > 0:
-			self.y -= 1
-	
-	def move_down(self):
-		self.y += 1				# TODO control missing !
-		
-	def move_left(self):
-		if self.x > 0:
-			self.x -= 1
-	
-	def move_right(self):
-		self.x +=1				# TODO control missing !
 
-	@property
-	def get_position(self):
-		return(self.x, self.y)
+    def __init__(self, name, x, y):
+        self.x = x
+        self.y = y
+        self.name = name
 
-	@property
-	def get_name(self):
-		return(self.name)
+    def move_up(self):
+        if self.y > 0:
+            self.y -= 1
+
+    def move_down(self):
+        if self.y < MAP_SIZE - 1:
+            self.y += 1
+
+    def move_left(self):
+        if self.x > 0:
+            self.x -= 1
+
+    def move_right(self):
+        if self.x < MAP_SIZE - 1:
+            self.x += 1
+
+    @property
+    def get_x(self):
+        return self.x
+
+    @property
+    def get_y(self):
+        return self.y
+
+    @property
+    def get_name(self):
+        return self.name
+
+    @property
+    def get_short_name(self):
+        return self.name[0].capitalize()
+
+class Object(Position):
+    def __init__(self, name, x, y):
+        super().__init__(name, x, y)
 
 
 class Hero(Position):
-	def __init__(self, x, y, name):
-		super().__init__(x, y, name)
-		self.items = []
-		
-	def move(self, direction):
-		if direction == UP:
-			self.move_up()
-		if direction == DOWN:
-			self.move_down()
-		if direction == LEFT:
-			self.move_left()
-		if direction == RIGHT:
-			self.move_right()
+    def __init__(self, name, x, y):
+        super().__init__(name, x, y)
+        self.items = []
+        self.dead = False
 
-		
-class Items(Position):
-	def __init__(self,x, y, name):
-		super().__init__(x, y, name)
-	
+    def pick_item(self, item):
+        self.items.append(item.name)
 
+    def died(self):
+        self.dead = True
 
-class Zone(Position):
-	def __init__(self):
-		self.area = []
-		self.start = ()
-		self.exit = ()
-
-	def load(self):			# loading MAP
-		self.area = []
-		with open(MAP_FILE, "r") as file: 	
-			for i, file_line in enumerate(file):
-				line = []
-				for j, character in enumerate(file_line):
-					if character != "\n":
-						line.append(character)
-					if character == 'S':
-						self.start = (j, i)
-					if character == 'E':
-						self.exit = (j, i)
-				self.area.append(line)		
-	@property			
-	def get_area(self):
-		return self.area
-	
-	@property
-	def get_start_position(self):
-		return self.start
-	
-	def is_free(self, x, y):
-		if self.area[y][x] == 'O':
-			return True
-		else:
-			return False
-			
-	@property
-	def get_area_len(self):
-		return(len(self.area))
+    def move(self, direction):
+        if direction == UP:
+            self.move_up()
+        if direction == DOWN:
+            self.move_down()
+        if direction == LEFT:
+            self.move_left()
+        if direction == RIGHT:
+            self.move_right()
 
 
-		#display function in the console
-def console_display(zone, objects_list):
-	os.system("clear")	
-	wall = '#'
-	zone.load()		#reload the map to erase the changes
-	area = zone.get_area
+class Game:
 
-			#place all the instance in the map
-	for elt in objects_list:
-		area[elt.get_position[1]][elt.get_position[0]] = elt.get_name[0]
+    def __init__(self):
+        self.hero = None
+        self.guardian = None
+        self.list_items = []
+        self.road = []
+        self.load_map()
+        self.load_items()
+
+    def load_map(self):
+        pass
+
+    def load_items(self):
+        pass
+
+def init_game():
+    list_objects = []
+
+    with open(MAP_FILE, "r") as file:   # loading MAP
+        for i, file_line in enumerate(file):
+            line = []
+            for j, character in enumerate(file_line):
+                if character == 'S':
+                    obj = Object("Start", j, i)
+                    list_objects.append(obj)
+                if character == 'E':
+                    obj = Object("Exit", j, i)
+                    list_objects.append(obj)
+                if character == 'O':
+                    obj = Object("None", j, i)
+                    list_objects.append(obj)
+                if character == 'X':
+                    obj = Object("Wall", j, i)
+                    list_objects.append(obj)
+    return(list_objects)
+
+def find_space(objects):
+    for obj in objects:
+        while True:
+            x = random.randint(0, (MAP_SIZE - 1))
+            y = random.randint(0, (MAP_SIZE - 1))
+            if is_free(objects, x, y):
+                return(x, y)
+
+def is_free(objects, x, y):
+    for obj in objects:
+        if x == obj.x and y == obj.y and "None" != obj.name:
+            return False
+    return True
+    
+def check_move(objects, player, direction):
+    x = 0
+    y = 0
+    if direction == UP:
+        y = -1
+    if direction == DOWN:
+        y = 1
+    if direction == LEFT:
+        x = -1
+    if direction == RIGHT:
+        x = 1
+    for obj in objects:
+        if player.x + x == obj.x and player.y +y == obj.y \
+            and "None" != obj.name \
+            and "Start" != obj.name \
+            and "Exit" != obj.name:
+            return False
+    return True
+
+def is_pickable(objects, player):
+    for obj in objects:
+        if player.x == obj.x and player.y == obj.y :
+            for elt in ITEMS_LIST:
+                if elt == obj.name:
+                    return True
+    return False
+
+def is_exit(objects, player):
+    for obj in objects:
+        if obj.name == "Exit":
+            if player.x == obj.x and player.y == obj.y:
+                    return True
+    return False
+
+def is_guardian(objects, player):
+    for obj in objects:
+        if obj.name == "Guardian":
+            if player.x == obj.x and player.y == obj.y:
+                    return True
+    return False
 
 
+def pick_item(objects, player):
+    for i, obj in enumerate(objects):
+        if player.x == obj.x and player.y == obj.y:
+            if player != obj:
+                player.pick_item(objects.pop(i))
+    
 
-	# created the first line and the last line for output
-	i = 0
-	output_extremity = ''
+def display_console(size, list_elt_map, list_obj_map):
+    os.system("clear")
+    area = []
+    line = []
+    i = 0
+    j = 0
+        
+    while i != (size):
+        while j != (size):
+            line.append('')
+            j += 1
+        area.append(line)
+        line = []
+        j = 0
+        i += 1
+    
+    for obj in list_elt_map:
+        if obj.get_name == "Wall":
+            rep = '#'
+        if obj.get_name == "None":
+            rep = ' '
+        if 'rep' in locals():
+            area[obj.y][obj.x] = rep
+            del(rep)
+        else:
+            area[obj.y][obj.x] = obj.get_short_name # erreur
+            
+    for obj in list_obj_map:
+        area[obj.y][obj.x] = obj.get_short_name
+    
+    i = 0
+    output_extremity = ''
+    while i != (size + 2):
+        output_extremity += '#'
+        i += 1
+    output_extremity +='\n'
+    
+    output = output_extremity
+    
+    # Create body
+    for line in area:
+        output = output + '#' + ''.join(line) + '#' + '\n'
+    output += output_extremity
+    print(output)
 
-	while i != (len(area) + 2):
-		output_extremity += wall
-		i += 1
-	output_extremity +='\n'
-	
-	output = output_extremity
-	
-	# Create body of the output in output
-	for line in area:
-		output = output + wall + ''.join(line) + wall + '\n'
-	
-	output += output_extremity
-	
-	output = output.replace('O', ' ')
-	output = output.replace('X', wall)
-	
-	print(output)
 
+# Main
 
-def find_space(zone):   #find an empty space
-	while True:
-		x = random.randint(0, (zone.get_area_len - 1))
-		y = random.randint(0, (zone.get_area_len - 1))
-		if zone.is_free(x, y):
-			return (x, y)
-		
+list_elt_map = init_game()
+list_obj_map = []
 
-# main code
-zone1 = Zone()
-zone1.load()
-instance_on_map = []
 
 for i in ITEMS_LIST:   # create instance for each item
-	x, y = find_space(zone1)
-	instance_on_map.append(Items(x, y, i))
+    x, y = find_space(list_elt_map)
+    list_obj_map.append(Object(i, x, y))
 
-		# create player
-macgyver = Hero(zone1.get_start_position[0], \
-					zone1.get_start_position[1], "MacGyver")
-instance_on_map.append(macgyver)
+x, y = find_space(list_elt_map)
+gardian = Object("Guardian", x, y)
+macgyver = Hero("MacGyver", 0, 0)  #TODO find the Object "Start"
+list_obj_map.append(gardian)
+list_obj_map.append(macgyver)
 
-console_display(zone1, instance_on_map)
+display_console(MAP_SIZE, list_elt_map, list_obj_map)
 
-	# keystroke loop
 loop_continue = True
 while loop_continue:
-	command = input("Direction ? (q for quit): ")
-	if command == 'q':
-	  	loop_continue = False
-	else :
-		macgyver.move(command)
-		console_display(zone1, instance_on_map)
-	  
-
+    command = input("Direction ? (q for quit): ")
+    if command == 'q':
+        loop_continue = False
+    else:
+        if check_move(list_elt_map, macgyver, command):
+            macgyver.move(command)
+            if is_pickable(list_obj_map, macgyver):
+                pick_item(list_obj_map, macgyver)
+            if is_guardian(list_obj_map, macgyver):
+                if len(ITEMS_LIST) != len(macgyver.items):
+                    macgyver.died()
+                    loop_continue = False
+            if is_exit(list_elt_map, macgyver) \
+                and len(ITEMS_LIST) == len(macgyver.items):
+                loop_continue = False
+        display_console(MAP_SIZE, list_elt_map, list_obj_map)
+        print("MacGyver possède : ", macgyver.items)
+        if macgyver.dead:
+            print("Vous êtes mort !")
+        if not loop_continue and len(ITEMS_LIST) == len(macgyver.items):
+            print("Bravo vous avez gagné !")
