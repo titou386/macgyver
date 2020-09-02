@@ -12,7 +12,6 @@ from constant import LEFT
 
 
 class Position:
-
     def __init__(self, name, x, y):
         self.x = x
         self.y = y
@@ -34,23 +33,22 @@ class Position:
         if self.x < MAP_SIZE - 1:
             self.x += 1
 
-    @property
-    def get_x(self):
-        return self.x
+    def compare(self, x, y):
+        return self.x == x and self.y == y
 
     @property
-    def get_y(self):
-        return self.y
-
-    @property
-    def get_name(self):
-        return self.name
-
-    @property
-    def get_short_name(self):
+    def cap_short_name(self):
         return self.name[0].capitalize()
 
-class Object(Position):
+class Road(Position):
+    def __init__(self, name, x, y):
+        super().__init__(name, x, y)
+
+class Items(Position):
+    def __init__(self, name, x, y):
+        super().__init__(name, x, y)
+
+class Guardian(Position):
     def __init__(self, name, x, y):
         super().__init__(name, x, y)
 
@@ -58,7 +56,7 @@ class Object(Position):
 class Hero(Position):
     def __init__(self, name, x, y):
         super().__init__(name, x, y)
-        self.items = []
+        self.collected_items = []
         self.dead = False
 
     def pick_item(self, item):
@@ -79,7 +77,6 @@ class Hero(Position):
 
 
 class Game:
-
     def __init__(self):
         self.hero = None
         self.guardian = None
@@ -88,32 +85,31 @@ class Game:
         self.load_map()
         self.load_items()
 
-    def load_map(self):
-        pass
+    def is_free(self, x, y):
+        return[road.compare(x, y) and not
+               self.hero.compare(x, y) and not
+               self.guardian.compare(x, y) for road in self.road]
 
     def load_items(self):
-        pass
+        road = [r for r in self.road if r.is_free(r.x, r.y)]
+        free_spaces = random.sample(road, len(ITEMS_LIST))
+        for i, item in enumerate(ITEMS_LIST):   # create instance for each item
+            self.list_items.append(
+                Items(item, free_spaces[i].x, free_spaces[i].y))
 
-def init_game():
-    list_objects = []
-
-    with open(MAP_FILE, "r") as file:   # loading MAP
-        for i, file_line in enumerate(file):
-            line = []
-            for j, character in enumerate(file_line):
-                if character == 'S':
-                    obj = Object("Start", j, i)
-                    list_objects.append(obj)
-                if character == 'E':
-                    obj = Object("Exit", j, i)
-                    list_objects.append(obj)
-                if character == 'O':
-                    obj = Object("None", j, i)
-                    list_objects.append(obj)
-                if character == 'X':
-                    obj = Object("Wall", j, i)
-                    list_objects.append(obj)
-    return(list_objects)
+    def load_map(self):
+        with open(MAP_FILE, "r") as file:   # loading MAP
+            for i, file_line in enumerate(file):
+                for j, character in enumerate(file_line):
+                    if character == 'S':
+                        obj = Hero("MacGyver", j, i)
+                        self.road.append(obj)
+                    if character == 'E':
+                        obj = Guardian("Guardian", j, i)
+                        self.road.append(obj)
+                    if character == 'O':
+                        obj = Road("Road", j, i)
+                        self.road.append(obj)
 
 def find_space(objects):
     for obj in objects:
@@ -123,12 +119,6 @@ def find_space(objects):
             if is_free(objects, x, y):
                 return(x, y)
 
-def is_free(objects, x, y):
-    for obj in objects:
-        if x == obj.x and y == obj.y and "None" != obj.name:
-            return False
-    return True
-    
 def check_move(objects, player, direction):
     x = 0
     y = 0
@@ -141,10 +131,10 @@ def check_move(objects, player, direction):
     if direction == RIGHT:
         x = 1
     for obj in objects:
-        if player.x + x == obj.x and player.y +y == obj.y \
+        if player.x + x == obj.x and player.y + y == obj.y \
             and "None" != obj.name \
             and "Start" != obj.name \
-            and "Exit" != obj.name:
+                and "Exit" != obj.name:
             return False
     return True
 
@@ -213,7 +203,7 @@ def display_console(size, list_elt_map, list_obj_map):
     while i != (size + 2):
         output_extremity += '#'
         i += 1
-    output_extremity +='\n'
+    output_extremity += '\n'
     
     output = output_extremity
     
@@ -230,13 +220,9 @@ list_elt_map = init_game()
 list_obj_map = []
 
 
-for i in ITEMS_LIST:   # create instance for each item
-    x, y = find_space(list_elt_map)
-    list_obj_map.append(Object(i, x, y))
-
 x, y = find_space(list_elt_map)
 gardian = Object("Guardian", x, y)
-macgyver = Hero("MacGyver", 0, 0)  #TODO find the Object "Start"
+macgyver = Hero("MacGyver", 0, 0)  # TODO find the Object "Start"
 list_obj_map.append(gardian)
 list_obj_map.append(macgyver)
 
