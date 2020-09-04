@@ -1,5 +1,6 @@
 import random
 import os
+import platform
 
 from constant import MAP_FILE
 from constant import MAP_SIZE
@@ -36,19 +37,14 @@ class Position:
     def compare(self, x, y):
         return self.x == x and self.y == y
 
-    @property
-    def cap_short_name(self):
-        return self.name[0].capitalize()
+    def is_free(self, road):
+        return[self.compare(r.x, r.y) and
+               r.name != "MacGyver" and
+               r.name != "Guardian" and
+               r.name != "Start" for r in road]
 
-class Road(Position):
-    def __init__(self, name, x, y):
-        super().__init__(name, x, y)
 
-class Items(Position):
-    def __init__(self, name, x, y):
-        super().__init__(name, x, y)
-
-class Guardian(Position):
+class Object(Position):
     def __init__(self, name, x, y):
         super().__init__(name, x, y)
 
@@ -61,9 +57,6 @@ class Hero(Position):
 
     def pick_item(self, item):
         self.items.append(item.name)
-
-    def died(self):
-        self.dead = True
 
     def move(self, direction):
         if direction == UP:
@@ -85,169 +78,128 @@ class Game:
         self.load_map()
         self.load_items()
 
-    def is_free(self, x, y):
-        return[road.compare(x, y) and not
-               self.hero.compare(x, y) and not
-               self.guardian.compare(x, y) for road in self.road]
-
     def load_items(self):
-        road = [r for r in self.road if r.is_free(r.x, r.y)]
+        road = [r for r in self.road if r.is_free(self.road)]
         free_spaces = random.sample(road, len(ITEMS_LIST))
-        for i, item in enumerate(ITEMS_LIST):   # create instance for each item
+        for i, item in enumerate(ITEMS_LIST):
             self.list_items.append(
-                Items(item, free_spaces[i].x, free_spaces[i].y))
+                Object(item, free_spaces[i].x, free_spaces[i].y))
 
     def load_map(self):
-        with open(MAP_FILE, "r") as file:   # loading MAP
+        with open(MAP_FILE, "r") as file:
             for i, file_line in enumerate(file):
                 for j, character in enumerate(file_line):
                     if character == 'S':
-                        obj = Hero("MacGyver", j, i)
-                        self.road.append(obj)
+                        self.road.append(Object("Start", j, i))
+                        self.hero = Hero("MacGyver", j, i)
                     if character == 'E':
-                        obj = Guardian("Guardian", j, i)
-                        self.road.append(obj)
+                        self.guardian = Object("Guardian", j, i)
+                        self.road.append(self.guardian)
                     if character == 'O':
-                        obj = Road("Road", j, i)
-                        self.road.append(obj)
+                        self.road.append(Object("Road", j, i))
+        self.road.append(self.hero)
 
-def find_space(objects):
-    for obj in objects:
-        while True:
-            x = random.randint(0, (MAP_SIZE - 1))
-            y = random.randint(0, (MAP_SIZE - 1))
-            if is_free(objects, x, y):
-                return(x, y)
+    def pre_move(self, direction):
+        x = 0
+        y = 0
+        if direction == UP:
+            y = -1
+        if direction == DOWN:
+            y = 1
+        if direction == LEFT:
+            x = -1
+        if direction == RIGHT:
+            x = 1
+        for obj in self.road:
+            if obj.compare(self.hero.x + x, self.hero.y + y):
+                self.hero.move(direction)
+                if self.is_item():
+                    self.pick_item()
+                break
 
-def check_move(objects, player, direction):
-    x = 0
-    y = 0
-    if direction == UP:
-        y = -1
-    if direction == DOWN:
-        y = 1
-    if direction == LEFT:
-        x = -1
-    if direction == RIGHT:
-        x = 1
-    for obj in objects:
-        if player.x + x == obj.x and player.y + y == obj.y \
-            and "None" != obj.name \
-            and "Start" != obj.name \
-                and "Exit" != obj.name:
-            return False
-    return True
+    def is_item(self):
+        for obj in self.list_items:
+            if obj.compare(self.hero.x, self.hero.y):
+                return True
+        return False
 
-def is_pickable(objects, player):
-    for obj in objects:
-        if player.x == obj.x and player.y == obj.y :
-            for elt in ITEMS_LIST:
-                if elt == obj.name:
-                    return True
-    return False
-
-def is_exit(objects, player):
-    for obj in objects:
-        if obj.name == "Exit":
-            if player.x == obj.x and player.y == obj.y:
-                    return True
-    return False
-
-def is_guardian(objects, player):
-    for obj in objects:
-        if obj.name == "Guardian":
-            if player.x == obj.x and player.y == obj.y:
-                    return True
-    return False
+    def pick_item(self):
+        for i, obj in enumerate(self.list_items):
+            if obj.compare(self.hero.x, self.hero.y):
+                self.hero.collected_items.append(self.list_items.pop(i))
 
 
-def pick_item(objects, player):
-    for i, obj in enumerate(objects):
-        if player.x == obj.x and player.y == obj.y:
-            if player != obj:
-                player.pick_item(objects.pop(i))
-    
+def display_console(game):
+    if platform.system() == "Windows":
+        os.system("cls")
+    else:
+        os.system("clear")
 
-def display_console(size, list_elt_map, list_obj_map):
-    os.system("clear")
     area = []
     line = []
     i = 0
     j = 0
-        
-    while i != (size):
-        while j != (size):
-            line.append('')
+
+    while i != (MAP_SIZE):
+        while j != (MAP_SIZE):
+            line.append('#')
             j += 1
         area.append(line)
         line = []
         j = 0
         i += 1
-    
-    for obj in list_elt_map:
-        if obj.get_name == "Wall":
-            rep = '#'
-        if obj.get_name == "None":
-            rep = ' '
-        if 'rep' in locals():
-            area[obj.y][obj.x] = rep
-            del(rep)
+
+    for obj in game.road:
+        if obj.name == "Road":
+            area[obj.y][obj.x] = ' '
         else:
-            area[obj.y][obj.x] = obj.get_short_name # erreur
-            
-    for obj in list_obj_map:
-        area[obj.y][obj.x] = obj.get_short_name
-    
+            area[obj.y][obj.x] = obj.name[0]
+
+    for obj in game.list_items:
+        area[obj.y][obj.x] = obj.name[0]
+
     i = 0
     output_extremity = ''
-    while i != (size + 2):
+    while i != (MAP_SIZE + 2):
         output_extremity += '#'
         i += 1
     output_extremity += '\n'
-    
+
     output = output_extremity
-    
+
     # Create body
     for line in area:
         output = output + '#' + ''.join(line) + '#' + '\n'
     output += output_extremity
     print(output)
+    print("\nMac Gyver possède : ", end='')
+    for item in level1.hero.collected_items:
+        print(item.name, end=' ')
+    print()
 
 
 # Main
 
-list_elt_map = init_game()
-list_obj_map = []
-
-
-x, y = find_space(list_elt_map)
-gardian = Object("Guardian", x, y)
-macgyver = Hero("MacGyver", 0, 0)  # TODO find the Object "Start"
-list_obj_map.append(gardian)
-list_obj_map.append(macgyver)
-
-display_console(MAP_SIZE, list_elt_map, list_obj_map)
+level1 = Game()
 
 loop_continue = True
 while loop_continue:
+    display_console(level1)
     command = input("Direction ? (q for quit): ")
     if command == 'q':
         loop_continue = False
     else:
-        if check_move(list_elt_map, macgyver, command):
-            macgyver.move(command)
-            if is_pickable(list_obj_map, macgyver):
-                pick_item(list_obj_map, macgyver)
-            if is_guardian(list_obj_map, macgyver):
-                if len(ITEMS_LIST) != len(macgyver.items):
-                    macgyver.died()
-                    loop_continue = False
-            if is_exit(list_elt_map, macgyver) \
-                and len(ITEMS_LIST) == len(macgyver.items):
+        level1.pre_move(command)
+        if level1.hero.compare(level1.guardian.x, level1.guardian.y):
+            if len(ITEMS_LIST) != len(level1.hero.collected_items):
                 loop_continue = False
-        display_console(MAP_SIZE, list_elt_map, list_obj_map)
-        print("MacGyver possède : ", macgyver.items)
-        if macgyver.dead:
-            print("Vous êtes mort !")
-        if not loop_continue and len(ITEMS_LIST) == len(macgyver.items):
-            print("Bravo vous avez gagné !")
+                display_console(level1)
+                print("Vous avez rencontré le guardain sans\
+ avoir tout recupéré les objets.")
+            else:
+                loop_continue = False
+                display_console(level1)
+                print("Bravo vous avez gagné.")
+            print("GAME OVER !")
+            if platform.system() == "Windows":
+                os.system("pause")
