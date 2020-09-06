@@ -1,3 +1,4 @@
+"""MacGyver labyrinth game for OpenClassRooms."""
 import random
 import os
 import platform
@@ -13,31 +14,46 @@ from constant import LEFT
 
 
 class Position:
+    """Parent class for positioning."""
+
     def __init__(self, name, x, y):
+        """Require a name and a position.
+
+        Attributes:
+            name (str): name of the object
+            x (int): for abscissa representation
+            y (int): for ordinate representation
+        """
         self.x = x
         self.y = y
         self.name = name
 
     def move_up(self):
+        """Move up, decrease y by 1."""
         if self.y > 0:
             self.y -= 1
 
     def move_down(self):
+        """Move down, increase y by 1."""
         if self.y < MAP_SIZE - 1:
             self.y += 1
 
     def move_left(self):
+        """Move left, decrease x by 1."""
         if self.x > 0:
             self.x -= 1
 
     def move_right(self):
+        """Move right, increase x by 1."""
         if self.x < MAP_SIZE - 1:
             self.x += 1
 
     def compare(self, x, y):
+        """Comparison test between the object and the position."""
         return self.x == x and self.y == y
 
     def is_free(self, road):
+        """Return True if this object is on an empty space on road list."""
         return[self.compare(r.x, r.y) and
                r.name != "MacGyver" and
                r.name != "Guardian" and
@@ -45,32 +61,74 @@ class Position:
 
 
 class Object(Position):
+    """Used for all objects on this labyrinth except MacGyver."""
+
     def __init__(self, name, x, y):
+        """Same attributes as Position class."""
         super().__init__(name, x, y)
 
 
 class Hero(Position):
+    """Used for the player MacGyver."""
+
     def __init__(self, name, x, y):
+        """Same attributes as position with a list of collected object."""
         super().__init__(name, x, y)
         self.collected_items = []
-        self.dead = False
 
     def pick_item(self, item):
-        self.items.append(item.name)
+        """Add an item on collected itmes list."""
+        self.collected_items.append(item.name)
 
     def move(self, direction):
+        """Check what direction is asked."""
         if direction == UP:
             self.move_up()
-        if direction == DOWN:
+        elif direction == DOWN:
             self.move_down()
-        if direction == LEFT:
+        elif direction == LEFT:
             self.move_left()
-        if direction == RIGHT:
+        elif direction == RIGHT:
             self.move_right()
+        else:
+            raise DirectionInputError(direction, "n'est pas reconnu")
+
+
+class DirectionInputError(Exception):
+    """Exception raised for errors in the input."""
+
+    def __init__(self, expression, message):
+        """Arg : expression from the input and error message."""
+        self.expression = expression
+        self.message = message
+        self.error()
+        self.help()
+
+    def error(self):
+        """Print the error message."""
+        print(self.expression, self.message)
+        print()
+
+    def help(self):
+        """Print the help message."""
+        print(UP, "pour haut")
+        print(DOWN, "pour bas")
+        print(LEFT, "pour gauche")
+        print(RIGHT, "pour droite")
 
 
 class Game:
+    """Create each objects and manage them in a play area."""
+
     def __init__(self):
+        """No args required.
+
+        Attributes:
+                    hero (Object) Represent the hero object
+                    guardian (Object) Represent the guardain object
+                    list_items (list of Object)
+                    road (list of Object)
+        """
         self.hero = None
         self.guardian = None
         self.list_items = []
@@ -79,6 +137,7 @@ class Game:
         self.load_items()
 
     def load_items(self):
+        """Create an instance of each item."""
         road = [r for r in self.road if r.is_free(self.road)]
         free_spaces = random.sample(road, len(ITEMS_LIST))
         for i, item in enumerate(ITEMS_LIST):
@@ -86,6 +145,7 @@ class Game:
                 Object(item, free_spaces[i].x, free_spaces[i].y))
 
     def load_map(self):
+        """Create an instance of each portion of the road."""
         with open(MAP_FILE, "r") as file:
             for i, file_line in enumerate(file):
                 for j, character in enumerate(file_line):
@@ -100,6 +160,7 @@ class Game:
         self.road.append(self.hero)
 
     def pre_move(self, direction):
+        """Do some checks before move the hero."""
         x = 0
         y = 0
         if direction == UP:
@@ -113,23 +174,18 @@ class Game:
         for obj in self.road:
             if obj.compare(self.hero.x + x, self.hero.y + y):
                 self.hero.move(direction)
-                if self.is_item():
-                    self.pick_item()
+                self.pre_pick_item()
                 break
 
-    def is_item(self):
-        for obj in self.list_items:
-            if obj.compare(self.hero.x, self.hero.y):
-                return True
-        return False
-
-    def pick_item(self):
+    def pre_pick_item(self):
+        """Verify if there is a pickable item."""
         for i, obj in enumerate(self.list_items):
             if obj.compare(self.hero.x, self.hero.y):
-                self.hero.collected_items.append(self.list_items.pop(i))
+                self.pick_item(self.list_items.pop(i))
 
 
 def display_console(game):
+    """Display the play area."""
     if platform.system() == "Windows":
         os.system("cls")
     else:
@@ -186,20 +242,23 @@ loop_continue = True
 while loop_continue:
     display_console(level1)
     command = input("Direction ? (q for quit): ")
-    if command == 'q':
-        loop_continue = False
-    else:
-        level1.pre_move(command)
-        if level1.hero.compare(level1.guardian.x, level1.guardian.y):
-            if len(ITEMS_LIST) != len(level1.hero.collected_items):
-                loop_continue = False
-                display_console(level1)
-                print("Vous avez rencontré le guardain sans\
+    try:
+        if command == 'q':
+            loop_continue = False
+        else:
+            level1.pre_move(command)
+            if level1.hero.compare(level1.guardian.x, level1.guardian.y):
+                if len(ITEMS_LIST) != len(level1.hero.collected_items):
+                    loop_continue = False
+                    display_console(level1)
+                    print("Vous avez rencontré le guardain sans\
  avoir tout recupéré les objets.")
-            else:
-                loop_continue = False
-                display_console(level1)
-                print("Bravo vous avez gagné.")
-            print("GAME OVER !")
-            if platform.system() == "Windows":
-                os.system("pause")
+                else:
+                    loop_continue = False
+                    display_console(level1)
+                    print("Bravo vous avez gagné.")
+                print("GAME OVER !")
+                if platform.system() == "Windows":
+                    os.system("pause")
+    except DirectionInputError as e:
+        input("Appuyer une touche pour continuer ...")

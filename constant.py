@@ -1,4 +1,4 @@
-### Some constant variable
+# Some constants variable
 
 MAP_FILE = "MAP"
 MAP_SIZE = 15
