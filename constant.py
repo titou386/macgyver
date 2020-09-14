@@ -1,8 +1,13 @@
-# Some constants variable
+"""Define some constants variable."""
 
 MAP_FILE = "MAP"
-MAP_SIZE = 15
 ITEMS_LIST = ["Needle", "Ether", "Syringe", "Tube"]
+IMG_PATH = "macgyver_ressources/ressource/"
+ITEMS_IMG = [
+    "aiguille.png",
+    "ether.png",
+    "seringue.png",
+    "tube_plastique.png"]
 
 # Shortcuts
 

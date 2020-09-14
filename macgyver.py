@@ -4,7 +4,6 @@ import os
 import platform
 
 from constant import MAP_FILE
-from constant import MAP_SIZE
 from constant import ITEMS_LIST
 
 from constant import UP
@@ -23,6 +22,7 @@ class Position:
             name (str): name of the object
             x (int): for abscissa representation
             y (int): for ordinate representation
+            map_size : for the size of the map
         """
         self.x = x
         self.y = y
@@ -35,7 +35,7 @@ class Position:
 
     def move_down(self):
         """Move down, increase y by 1."""
-        if self.y < MAP_SIZE - 1:
+        if self.y < map_size - 1:
             self.y += 1
 
     def move_left(self):
@@ -45,22 +45,15 @@ class Position:
 
     def move_right(self):
         """Move right, increase x by 1."""
-        if self.x < MAP_SIZE - 1:
+        if self.x < map_size - 1:
             self.x += 1
 
     def compare(self, x, y):
         """Comparison test between the object and the position."""
         return self.x == x and self.y == y
 
-    def is_free(self, road):
-        """Return True if this object is on an empty space on road list."""
-        return[self.compare(r.x, r.y) and
-               r.name != "MacGyver" and
-               r.name != "Guardian" and
-               r.name != "Start" for r in road]
 
-
-class Object(Position):
+class Items(Position):
     """Used for all objects on this labyrinth except MacGyver."""
 
     def __init__(self, name, x, y):
@@ -78,7 +71,7 @@ class Hero(Position):
 
     def pick_item(self, item):
         """Add an item on collected itmes list."""
-        self.collected_items.append(item.name)
+        self.collected_items.append(item)
 
     def move(self, direction):
         """Check what direction is asked."""
@@ -91,30 +84,14 @@ class Hero(Position):
         elif direction == RIGHT:
             self.move_right()
         else:
-            raise DirectionInputError(direction, "n'est pas reconnu")
+            raise DirectionInputError()
 
 
 class DirectionInputError(Exception):
     """Exception raised for errors in the input."""
 
-    def __init__(self, expression, message):
-        """Arg : expression from the input and error message."""
-        self.expression = expression
-        self.message = message
-        self.error()
-        self.help()
-
-    def error(self):
-        """Print the error message."""
-        print(self.expression, self.message)
-        print()
-
-    def help(self):
-        """Print the help message."""
-        print(UP, "pour haut")
-        print(DOWN, "pour bas")
-        print(LEFT, "pour gauche")
-        print(RIGHT, "pour droite")
+    def __init__(self):
+        """Exception raised for errors in the input."""
 
 
 class Game:
@@ -136,27 +113,35 @@ class Game:
         self.load_map()
         self.load_items()
 
+    def is_free(self, x, y):
+        """Return True if this object is on an empty space on road list."""
+        return[r.compare(x, y) and
+               r.name != "MacGyver" and
+               r.name != "Guardian" for r in self.road]
+
     def load_items(self):
         """Create an instance of each item."""
-        road = [r for r in self.road if r.is_free(self.road)]
+        road = [r for r in self.road if self.is_free(r.x, r.y)]
         free_spaces = random.sample(road, len(ITEMS_LIST))
         for i, item in enumerate(ITEMS_LIST):
             self.list_items.append(
-                Object(item, free_spaces[i].x, free_spaces[i].y))
+                Items(item, free_spaces[i].x, free_spaces[i].y))
 
     def load_map(self):
         """Create an instance of each portion of the road."""
         with open(MAP_FILE, "r") as file:
             for i, file_line in enumerate(file):
+                global map_size
+                map_size = i + 1
                 for j, character in enumerate(file_line):
                     if character == 'S':
-                        self.road.append(Object("Start", j, i))
+                        self.road.append(Items("Start", j, i))
                         self.hero = Hero("MacGyver", j, i)
                     if character == 'E':
-                        self.guardian = Object("Guardian", j, i)
+                        self.guardian = Items("Guardian", j, i)
                         self.road.append(self.guardian)
                     if character == 'O':
-                        self.road.append(Object("Road", j, i))
+                        self.road.append(Items("Road", j, i))
         self.road.append(self.hero)
 
     def pre_move(self, direction):
@@ -181,7 +166,7 @@ class Game:
         """Verify if there is a pickable item."""
         for i, obj in enumerate(self.list_items):
             if obj.compare(self.hero.x, self.hero.y):
-                self.pick_item(self.list_items.pop(i))
+                self.hero.pick_item(self.list_items.pop(i))
 
 
 def display_console(game):
@@ -193,17 +178,12 @@ def display_console(game):
 
     area = []
     line = []
-    i = 0
-    j = 0
 
-    while i != (MAP_SIZE):
-        while j != (MAP_SIZE):
+    for i in range(0, map_size, 1):
+        for i in range(0, map_size, 1):
             line.append('#')
-            j += 1
         area.append(line)
         line = []
-        j = 0
-        i += 1
 
     for obj in game.road:
         if obj.name == "Road":
@@ -214,11 +194,10 @@ def display_console(game):
     for obj in game.list_items:
         area[obj.y][obj.x] = obj.name[0]
 
-    i = 0
+
     output_extremity = ''
-    while i != (MAP_SIZE + 2):
+    for i in range(0, map_size + 2, 1):
         output_extremity += '#'
-        i += 1
     output_extremity += '\n'
 
     output = output_extremity
@@ -229,36 +208,36 @@ def display_console(game):
     output += output_extremity
     print(output)
     print("\nMac Gyver possède : ", end='')
-    for item in level1.hero.collected_items:
+    for item in game.hero.collected_items:
         print(item.name, end=' ')
     print()
 
 
 # Main
+if __name__ == '__main__':
+    game = Game()
 
-level1 = Game()
-
-loop_continue = True
-while loop_continue:
-    display_console(level1)
-    command = input("Direction ? (q for quit): ")
-    try:
-        if command == 'q':
-            loop_continue = False
-        else:
-            level1.pre_move(command)
-            if level1.hero.compare(level1.guardian.x, level1.guardian.y):
-                if len(ITEMS_LIST) != len(level1.hero.collected_items):
-                    loop_continue = False
-                    display_console(level1)
-                    print("Vous avez rencontré le guardain sans\
+    loop_continue = True
+    while loop_continue:
+        display_console(game)
+        command = input("Direction ? (q for quit): ")
+        try:
+            if command == 'q':
+                loop_continue = False
+            else:
+                game.pre_move(command)
+                if game.hero.compare(game.guardian.x, game.guardian.y):
+                    if len(ITEMS_LIST) != len(game.hero.collected_items):
+                        loop_continue = False
+                        display_console(game)
+                        print("Vous avez rencontré le guardain sans\
  avoir tout recupéré les objets.")
-                else:
-                    loop_continue = False
-                    display_console(level1)
-                    print("Bravo vous avez gagné.")
-                print("GAME OVER !")
-                if platform.system() == "Windows":
-                    os.system("pause")
-    except DirectionInputError as e:
-        input("Appuyer une touche pour continuer ...")
+                    else:
+                        loop_continue = False
+                        display_console(game)
+                        print("Bravo vous avez gagné.")
+                    print("GAME OVER !")
+                    if platform.system() == "Windows":
+                        os.system("pause")
+        except DirectionInputError as e:
+            pass
