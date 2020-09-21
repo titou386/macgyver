@@ -3,13 +3,13 @@ import random
 import os
 import platform
 
-from constant import MAP_FILE
-from constant import ITEMS_LIST
+from src.constant import MAP_FILE
+from src.constant import ITEMS_LIST
 
-from constant import UP
-from constant import DOWN
-from constant import RIGHT
-from constant import LEFT
+from src.constant import UP
+from src.constant import DOWN
+from src.constant import RIGHT
+from src.constant import LEFT
 
 
 class Position:
@@ -22,7 +22,6 @@ class Position:
             name (str): name of the object
             x (int): for abscissa representation
             y (int): for ordinate representation
-            map_size : for the size of the map
         """
         self.x = x
         self.y = y
@@ -33,7 +32,7 @@ class Position:
         if self.y > 0:
             self.y -= 1
 
-    def move_down(self):
+    def move_down(self, map_size):
         """Move down, increase y by 1."""
         if self.y < map_size - 1:
             self.y += 1
@@ -43,18 +42,34 @@ class Position:
         if self.x > 0:
             self.x -= 1
 
-    def move_right(self):
+    def move_right(self, map_size):
         """Move right, increase x by 1."""
         if self.x < map_size - 1:
             self.x += 1
 
     def compare(self, x, y):
         """Comparison test between the object and the position."""
-        return self.x == x and self.y == y
+        return(self.x == x and self.y == y)
 
 
-class Items(Position):
-    """Used for all objects on this labyrinth except MacGyver."""
+class Item(Position):
+    """Used for alls items on this labyrinth MacGyver needs to pick up."""
+
+    def __init__(self, name, x, y):
+        """Same attributes as Position class."""
+        super().__init__(name, x, y)
+
+
+class Road(Position):
+    """Used for the road path."""
+
+    def __init__(self, name, x, y):
+        """Same attributes as Position class."""
+        super().__init__(name, x, y)
+
+
+class Guardian(Position):
+    """Used for the guardian."""
 
     def __init__(self, name, x, y):
         """Same attributes as Position class."""
@@ -73,16 +88,16 @@ class Hero(Position):
         """Add an item on collected itmes list."""
         self.collected_items.append(item)
 
-    def move(self, direction):
+    def move(self, direction, map_size):
         """Check what direction is asked."""
         if direction == UP:
             self.move_up()
         elif direction == DOWN:
-            self.move_down()
+            self.move_down(map_size)
         elif direction == LEFT:
             self.move_left()
         elif direction == RIGHT:
-            self.move_right()
+            self.move_right(map_size)
         else:
             raise DirectionInputError()
 
@@ -108,6 +123,7 @@ class Game:
         """
         self.hero = None
         self.guardian = None
+        self.map_size = 0
         self.list_items = []
         self.road = []
         self.load_map()
@@ -115,9 +131,9 @@ class Game:
 
     def is_free(self, x, y):
         """Return True if this object is on an empty space on road list."""
-        return[r.compare(x, y) and
-               r.name != "MacGyver" and
-               r.name != "Guardian" for r in self.road]
+        return(not self.hero.compare(x, y) and
+               not self.guardian.compare(x, y) and
+               any([True for r in self.road if r.compare(x, y)]))
 
     def load_items(self):
         """Create an instance of each item."""
@@ -125,24 +141,25 @@ class Game:
         free_spaces = random.sample(road, len(ITEMS_LIST))
         for i, item in enumerate(ITEMS_LIST):
             self.list_items.append(
-                Items(item, free_spaces[i].x, free_spaces[i].y))
+                Item(item, free_spaces[i].x, free_spaces[i].y))
 
     def load_map(self):
         """Create an instance of each portion of the road."""
         with open(MAP_FILE, "r") as file:
             for i, file_line in enumerate(file):
-                global map_size
-                map_size = i + 1
+                if (i + 1) > self.map_size:
+                    self.map_size = i + 1
                 for j, character in enumerate(file_line):
+                    if j > self.map_size:
+                        self.map_size = j
                     if character == 'S':
-                        self.road.append(Items("Start", j, i))
                         self.hero = Hero("MacGyver", j, i)
+                        self.road.append(Road("Start", j, i))
                     if character == 'E':
-                        self.guardian = Items("Guardian", j, i)
-                        self.road.append(self.guardian)
+                        self.guardian = Guardian("Guardian", j, i)
+                        self.road.append(Road("Road", j, i))
                     if character == 'O':
-                        self.road.append(Items("Road", j, i))
-        self.road.append(self.hero)
+                        self.road.append(Road("Road", j, i))
 
     def pre_move(self, direction):
         """Do some checks before move the hero."""
@@ -158,7 +175,7 @@ class Game:
             x = 1
         for obj in self.road:
             if obj.compare(self.hero.x + x, self.hero.y + y):
-                self.hero.move(direction)
+                self.hero.move(direction, self.map_size)
                 self.pre_pick_item()
                 break
 
@@ -179,8 +196,8 @@ def display_console(game):
     area = []
     line = []
 
-    for i in range(0, map_size, 1):
-        for i in range(0, map_size, 1):
+    for i in range(0, game.map_size, 1):
+        for i in range(0, game.map_size, 1):
             line.append('#')
         area.append(line)
         line = []
@@ -194,9 +211,11 @@ def display_console(game):
     for obj in game.list_items:
         area[obj.y][obj.x] = obj.name[0]
 
+    area[game.hero.y][game.hero.x] = game.hero.name[0]
+    area[game.guardian.y][game.guardian.x] = game.guardian.name[0]
 
     output_extremity = ''
-    for i in range(0, map_size + 2, 1):
+    for i in range(0, game.map_size + 2, 1):
         output_extremity += '#'
     output_extremity += '\n'
 
@@ -213,8 +232,8 @@ def display_console(game):
     print()
 
 
-# Main
-if __name__ == '__main__':
+def main():
+    """Main."""
     game = Game()
 
     loop_continue = True
@@ -230,7 +249,7 @@ if __name__ == '__main__':
                     if len(ITEMS_LIST) != len(game.hero.collected_items):
                         loop_continue = False
                         display_console(game)
-                        print("Vous avez rencontré le guardain sans\
+                        print("Vous avez rencontré le gardien sans\
  avoir tout recupéré les objets.")
                     else:
                         loop_continue = False
@@ -239,5 +258,5 @@ if __name__ == '__main__':
                     print("GAME OVER !")
                     if platform.system() == "Windows":
                         os.system("pause")
-        except DirectionInputError as e:
+        except DirectionInputError:
             pass
