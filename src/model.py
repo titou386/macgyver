@@ -123,6 +123,7 @@ class Game:
         """
         self.hero = None
         self.guardian = None
+        self.exit = None
         self.map_size = 0
         self.list_items = []
         self.road = []
@@ -133,6 +134,7 @@ class Game:
         """Return True if this object is on an empty space on road list."""
         return(not self.hero.compare(x, y) and
                not self.guardian.compare(x, y) and
+               not self.exit.compare(x, y) and
                any([True for r in self.road if r.compare(x, y)]))
 
     def load_items(self):
@@ -155,14 +157,17 @@ class Game:
                     if character == 'S':
                         self.hero = Hero("MacGyver", j, i)
                         self.road.append(Road("Start", j, i))
-                    if character == 'E':
+                    if character == 'G':
                         self.guardian = Guardian("Guardian", j, i)
                         self.road.append(Road("Road", j, i))
                     if character == 'O':
                         self.road.append(Road("Road", j, i))
+                    if character == 'E':
+                        self.exit = Road("Exit", j, i)
+                        self.road.append(self.exit)
 
-    def pre_move(self, direction):
-        """Do some checks before move the hero."""
+    def check_move(self, direction):
+        """Do some checks before and after move the hero."""
         x = 0
         y = 0
         if direction == UP:
@@ -176,10 +181,10 @@ class Game:
         for obj in self.road:
             if obj.compare(self.hero.x + x, self.hero.y + y):
                 self.hero.move(direction, self.map_size)
-                self.pre_pick_item()
+                self.check_pick_item()
                 break
 
-    def pre_pick_item(self):
+    def check_pick_item(self):
         """Verify if there is a pickable item."""
         for i, obj in enumerate(self.list_items):
             if obj.compare(self.hero.x, self.hero.y):
@@ -244,19 +249,21 @@ def main():
             if command == 'q':
                 loop_continue = False
             else:
-                game.pre_move(command)
-                if game.hero.compare(game.guardian.x, game.guardian.y):
-                    if len(ITEMS_LIST) != len(game.hero.collected_items):
-                        loop_continue = False
-                        display_console(game)
-                        print("Vous avez rencontré le gardien sans\
+                game.check_move(command)
+                if (game.hero.compare(game.guardian.x, game.guardian.y) and
+                   len(ITEMS_LIST) != len(game.hero.collected_items)):
+                    loop_continue = False
+                    display_console(game)
+                    print("Vous avez rencontré le gardien sans\
  avoir tout recupéré les objets.")
-                    else:
-                        loop_continue = False
-                        display_console(game)
-                        print("Bravo vous avez gagné.")
-                    print("GAME OVER !")
-                    if platform.system() == "Windows":
-                        os.system("pause")
+                if (game.hero.compare(game.exit.x, game.exit.y) and
+                   len(ITEMS_LIST) == len(game.hero.collected_items)):
+                    loop_continue = False
+                    display_console(game)
+                    print("Bravo vous avez gagné.")
+                print("GAME OVER !")
         except DirectionInputError:
             pass
+
+    if platform.system() == "Windows":
+        os.system("pause")

@@ -8,14 +8,15 @@ from src.constant import ITEMS_LIST
 from src.constant import IMG_PATH
 from src.constant import ITEMS_IMG
 
+from src.constant import ZOOM
+
 from src.constant import UP
 from src.constant import DOWN
 from src.constant import RIGHT
 from src.constant import LEFT
 
-elt_size = elt_width, elt_height = 30, 30
 # Original size is 20px
-zoom = elt_width / 20
+elt_size = elt_width, elt_height = int(ZOOM * 20), int(ZOOM * 20)
 
 
 def init_xgame(game, size):
@@ -24,6 +25,7 @@ def init_xgame(game, size):
     pygame.init()
 
     screen = pygame.display.set_mode((width, height + elt_height))
+    background = pygame.Surface(size)
 
     tiles = pygame.image.load(IMG_PATH + "floor-tiles-20x20.png")
     guardian = pygame.image.load(IMG_PATH + "Gardien.png")
@@ -33,14 +35,18 @@ def init_xgame(game, size):
     road = pygame.Surface((20, 20))
     start = pygame.Surface((20, 20))
 
-    background = pygame.Surface(size)
-
     wall.blit(tiles, (0, 0), (300, 0, 20, 20))
     wall = pygame.transform.scale(wall, elt_size)
     road.blit(tiles, (0, 0), (0, 240, 20, 20))
     road = pygame.transform.scale(road, elt_size)
     start.blit(tiles, (0, 0), (160, 20, 20, 20))
     start = pygame.transform.scale(start, elt_size)
+
+    decorations = pygame.image.load(IMG_PATH + "decorations.png")
+    exit = pygame.Surface((40, 40))
+    exit.fill((255, 255, 255))
+    exit.blit(decorations, (0, 0), (40, 40, 40, 40))
+    exit = pygame.transform.scale(exit, elt_size)
 
     for y in range(0, height, elt_height):
         for x in range(0, width, elt_width):
@@ -51,8 +57,8 @@ def init_xgame(game, size):
                         background.blit(road, (x, y))
                     elif obj.name == "Start":
                         background.blit(start, (x, y))
-                    elif obj.name == "Guardian":
-                        background.blit(guardian, (x, y))
+                    elif obj.name == "Exit":
+                        background.blit(exit, (x, y))
     background.blit(guardian, (
         game.guardian.x * elt_width, game.guardian.y * elt_height))
 
@@ -65,9 +71,9 @@ def main():
     size = (elt_width * game.map_size, elt_height * game.map_size)
     screen, background = init_xgame(game, size)
 
-    small_font = pygame.font.SysFont("Comic Sans MS", int(25 * zoom))
+    small_font = pygame.font.SysFont("Comic Sans MS", int(25 * ZOOM))
     hero_have = small_font.render("MacGyver possède :", False, (255, 255, 255))
-    big_font = pygame.font.SysFont("Comic Sans MS", int(55 * zoom))
+    big_font = pygame.font.SysFont("Comic Sans MS", int(55 * ZOOM))
     big_font.set_bold(True)
     game_over = big_font.render("GAME OVER !", False, (255, 0, 0), (0, 0, 0))
 
@@ -87,22 +93,23 @@ def main():
             sys.exit()
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_LEFT:
-                game.pre_move(LEFT)
+                game.check_move(LEFT)
             if event.key == pygame.K_RIGHT:
-                game.pre_move(RIGHT)
+                game.check_move(RIGHT)
             if event.key == pygame.K_UP:
-                game.pre_move(UP)
+                game.check_move(UP)
             if event.key == pygame.K_DOWN:
-                game.pre_move(DOWN)
+                game.check_move(DOWN)
             if event.key == pygame.K_q:
                 sys.exit()
-        if game.hero.compare(game.guardian.x, game.guardian.y):
-            if len(ITEMS_LIST) != len(game.hero.collected_items):
-                loop_continue = False
-                end_mesg = "Vous avez perdu !!!"
-            else:
-                loop_continue = False
-                end_mesg = "Vous avez gagné !!!"
+        if (game.hero.compare(game.guardian.x, game.guardian.y) and
+           len(ITEMS_LIST) != len(game.hero.collected_items)):
+            loop_continue = False
+            end_mesg = "Vous avez perdu !!!"
+        if (game.hero.compare(game.exit.x, game.exit.y) and
+           len(ITEMS_LIST) == len(game.hero.collected_items)):
+            loop_continue = False
+            end_mesg = "Vous avez gagné !!!"
 
         screen.blit(background, (0, 0))
 
@@ -116,7 +123,7 @@ def main():
         screen.blit(hero_have, (0, game.map_size * elt_height))
         for i, item in enumerate(game.hero.collected_items):
             screen.blit(py_img[item.name],
-                        (i * elt_width + int(180 * zoom),
+                        (i * elt_width + int(180 * ZOOM),
                             game.map_size * elt_height))
         pygame.display.flip()
 
